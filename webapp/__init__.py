@@ -59,31 +59,37 @@ def create_app():
     @app.route("/register", methods=["GET", "POST"])
     def register():
         if request.method == "POST":
-            name = request.form.get("name")
-            email = request.form.get("email").lower().strip()
-            password = request.form.get("password")
+            name = request.form["name"].strip()
+            email = request.form["email"].strip().lower()
+            password = request.form["password"]
 
-            # Verifica email duplicado
-            existing = User.query.filter_by(email=email).first()
-            if existing:
-                flash("Este email já está registrado. Tente fazer login.", "error")
+            # --- validações ---
+            if not name or not email or not password:
+                flash("Preencha todos os campos.", "error")
                 return redirect(url_for("register"))
 
-            # Validação básica de senha
+            # email já existe?
+            if User.query.filter_by(email=email).first():
+                flash("Este e-mail já está cadastrado.", "error")
+                return redirect(url_for("register"))
+
+            # força senha ter letras e números
+            if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+                flash("A senha deve conter letras e números.", "error")
+                return redirect(url_for("register"))
+
+            # senha mínima
             if len(password) < 6:
                 flash("A senha deve ter pelo menos 6 caracteres.", "error")
                 return redirect(url_for("register"))
-            if password.isnumeric():
-                flash("A senha não pode ser apenas números.", "error")
-                return redirect(url_for("register"))
 
-            # Criar usuário
-            u = User(name=name, email=email)
-            u.set_password(password)
-            db.session.add(u)
+            # --- criar usuário ---
+            user = User(name=name, email=email)
+            user.set_password(password)  # usa bcrypt ou passlib
+            db.session.add(user)
             db.session.commit()
 
-            flash("Conta criada com sucesso! Faça login.", "success")
+            flash("Conta criada com sucesso! Agora faça login.", "success")
             return redirect(url_for("login"))
 
         return render_template("register.html")

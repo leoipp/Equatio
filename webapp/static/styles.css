@@ -1,9 +1,26 @@
+/* ===== Reset e base ===== */
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Helvetica Neue"; }
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
+  display: flex;
+  flex-direction: column;
+}
 
+
+/* Área que cresce para empurrar o footer */
+.content,
+.page,
+.container {
+  flex: 1;
+}
+
+/* ===== Header / Topbar ===== */
 .topbar {
-  background: #111;
-  color: #fff;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  color: #111;
 }
 
 .topbar-inner {
@@ -16,43 +33,64 @@ html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystem
 }
 
 .brand {
-  color: #fff;
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #111;
   text-decoration: none;
-  font-weight: 600;
 }
 
-.nav-center {
+/* Menu central (somente “Dash”, já que clicar no logo volta Home) */
+.nav { display: contents; }
+.nav.nav-center {
   display: flex;
   justify-content: center;
   gap: 16px;
 }
-
-.nav-center a {
-  color: #ddd;
+.nav.nav-center a {
+  color: #111;
   text-decoration: none;
+  margin: 0 10px;
 }
+.nav.nav-center a:hover { text-decoration: underline; }
 
-.nav-center a:hover {
-  color: #fff;
-}
-
+/* Área do usuário (direita) */
 .user-nav {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
 }
+.welcome { color: #222; font-size: .95rem; }
 
-.user-nav a {
-  color: #ddd;
+/* Botões do header */
+.btn-login {
+  display: inline-block;
+  padding: 6px 14px;
+  border: 1px solid #111;
+  border-radius: 8px;
+  color: #111;
+  background: transparent;
   text-decoration: none;
+  font-weight: 600;
 }
+.btn-login:hover { background: #f5f5f5; }
 
-.user-nav a:hover {
+.btn-register {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: #111;
   color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  border: 1px solid #111;
+}
+.btn-register:hover {
+  background: #333;
+  border-color: #333;
 }
 
+/* ===== Layouts utilitários ===== */
 .page { max-width: 1200px; margin: 0 auto; padding: 20px 16px 32px; }
-
 .container { max-width: none; margin: 0 auto; padding: 16px 20px 28px; }
 .panel { padding: 12px; border: 1px solid #eee; border-radius: 10px; background: #fafafa; }
 .row { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -61,24 +99,31 @@ html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystem
 .mt-14 { margin-top: 14px; }
 .minw-220 { min-width: 220px; }
 .minw-260 { min-width: 260px; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; white-space: pre-wrap; }
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+}
 
+/* Form */
 .form { max-width: 360px; display: grid; gap: 8px; }
 .form input { padding: 8px; }
 .form button { padding: 8px 12px; }
 
-.alert { padding: 8px 12px; background: #ffefef; color: #900; border: 1px solid #f3c5c5; border-radius: 6px; }
+/* Alerts */
+.alert { padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; }
+.alert.error { background: #ffefef; color: #900; border: 1px solid #f3c5c5; }
+.alert.success { background: #e7f9ef; color: #064; border: 1px solid #9ecfba; }
 
-/* se a sua topbar tem ~60px de altura */
+/* ===== Dash Iframe (tela quase cheia abaixo do header) ===== */
 .dash-frame {
   width: 100vw !important;
-  height: calc(100vh - 60px) !important; /* troque 60px pela altura do seu header */
+  height: calc(100vh - 60px) !important; /* ajuste 60px conforme altura real do header */
   border: 0 !important;
   border-radius: 0 !important;
   display: block !important;
 }
 
-/* Remova restrições de largura/ padding nessa página, se houver */
+/* Quando for página do Dash, remover paddings/limits indesejados */
 .page, .container, .panel {
   max-width: none !important;
   padding: 0 !important;
@@ -87,14 +132,11 @@ html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystem
   background: transparent !important;
 }
 
-/* ====== HEADER já existente no seu CSS ====== */
-/* .topbar, .topbar-inner, .brand, .nav ... já estão definidos */
-
-/* ====== HERO ====== */
+/* ===== Hero (cabeçalho com imagem) ===== */
 .hero {
   position: relative;
   width: 100%;
-  height: min(56vh, 520px); /* altura agradável e responsiva */
+  height: min(56vh, 520px);
   overflow: hidden;
   background: #000;
 }
@@ -124,8 +166,9 @@ html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystem
   opacity: 0.95;
   margin: 0 0 16px 0;
 }
+.hero-cta { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
-/* ====== BOTÕES ====== */
+/* Botões genéricos */
 .btn {
   display: inline-block;
   padding: 10px 14px;
@@ -144,28 +187,14 @@ html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystem
 }
 .btn-primary:hover { background: #1e4fd6; }
 
-/* ====== CONTAINER SECUNDÁRIO ====== */
+/* ===== Home / Seção Sobre (cards lado a lado, imagens circulares) ===== */
 .home-container {
   max-width: 1200px;
   margin: 18px auto 28px;
   padding: 0 16px;
 }
 
-/* ====== FOOTER ====== */
-.site-footer {
-  border-top: 1px solid #eee;
-  background: #fafafa;
-  margin-top: 10px;
-}
-.footer-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 14px 16px 24px;
-  color: #555;
-  font-size: 14px;
-}
-
-/* Grade para os cards "Sobre o Projeto" */
+/* Grid responsivo (3 colunas em telas grandes; quebra para 2/1 em telas menores) */
 .about-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -174,7 +203,7 @@ html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystem
   align-items: start;
 }
 
-/* Cada card */
+/* Card */
 .about-card {
   text-align: center;
   background: #fff;
@@ -183,7 +212,7 @@ html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystem
   box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 
-/* Imagens circulares */
+/* Imagens circulares no topo do card */
 .about-img {
   display: block;
   width: 160px;
@@ -194,18 +223,27 @@ html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystem
   border: 3px solid #eee;
 }
 
-/* Título do card */
+/* Título e texto do card */
 .about-title {
   font-size: 1.2rem;
   margin-bottom: 8px;
 }
-
-/* Texto do card */
 .about-text {
   font-size: 0.95rem;
   line-height: 1.4;
   color: #444;
 }
 
-
-
+/* ===== Footer colado ao final ===== */
+.site-footer {
+  border-top: 1px solid #eee;
+  background: #fafafa;
+  margin-top: auto; /* garante que o footer grude no fim */
+}
+.footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 16px 24px;
+  color: #555;
+  font-size: 14px;
+}

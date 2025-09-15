@@ -1,4 +1,5 @@
 <!doctype html>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <html lang="pt-br">
 <head>
   <meta charset="utf-8"/>
@@ -9,35 +10,37 @@
 <body>
   <!-- Header / Topbar -->
   <header class="topbar">
-  <div class="topbar-inner">
-    <!-- Esquerda -->
-    <a class="brand" href="{{ url_for('home') }}">Equatio</a>
+    <div class="topbar-inner">
+      <!-- Esquerda -->
+      <a class="brand" href="{{ url_for('home') }}">Equatio</a>
 
-    <!-- Meio -->
-    <nav class="nav nav-center">
-      <a href="{{ url_for('home') }}">Home</a>
-      <a href="{{ url_for('dash_page') }}">Dash</a>
-    </nav>
+      <!-- Meio -->
+      <nav class="nav nav-center">
+        <a href="{{ url_for('dash_page') }}">Dash</a>
+      </nav>
 
-    <!-- Direita -->
-    <div class="user-nav">
-      {% if current_user.is_authenticated %}
-        <span class="welcome">Olá, {{ current_user.name }}</span>
-        <a href="{{ url_for('logout') }}">Sair</a>
-      {% else %}
-        <a href="{{ url_for('login') }}">Login</a>
-        <a href="{{ url_for('register') }}">Registrar</a>
-      {% endif %}
+      <!-- Direita -->
+      <div class="user-nav">
+        {% if current_user.is_authenticated %}
+          <span class="welcome">Olá, {{ current_user.name }}</span>
+          <a href="{{ url_for('logout') }}">Sair</a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="btn-login">Login</a>
+          <a href="{{ url_for('register') }}" class="btn-register">Registrar</a>
+        {% endif %}
+      </div>
     </div>
-  </div>
-</header>
+  </header>
 
-  {% block content %}{% endblock %}
+  <!-- Conteúdo principal -->
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
 
   <!-- Footer -->
   <footer class="site-footer">
     <div class="footer-inner">
-      <p>© {{ 2025 }} Equatio — Todos os direitos reservados</p>
+      <p>© 2025 Equatio — Todos os direitos reservados</p>
     </div>
   </footer>
 </body>
