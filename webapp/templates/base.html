@@ -1,10 +1,10 @@
 <!doctype html>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <html lang="pt-br">
 <head>
   <meta charset="utf-8"/>
   <title>{% block title %}Equatio{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
@@ -22,26 +22,43 @@
       <!-- Direita -->
       <div class="user-nav">
         {% if current_user.is_authenticated %}
-          <span class="welcome">Olá, {{ current_user.name }}</span>
-          <a href="{{ url_for('logout') }}">Sair</a>
+          <div class="user-dropdown" id="userDropdown">
+            <span class="user-name">{{ current_user.name }}</span>
+            <div class="dropdown-menu">
+              <a href="{{ url_for('profile') }}">Perfil</a>
+              <a href="{{ url_for('logout') }}">Sair</a>
+            </div>
+          </div>
         {% else %}
-          <a href="{{ url_for('login') }}" class="btn-login">Login</a>
-          <a href="{{ url_for('register') }}" class="btn-register">Registrar</a>
+          <a href="{{ url_for('login') }}" class="btn btn-outline">Login</a>
+          <a href="{{ url_for('register') }}" class="btn btn-dark">Registrar</a>
         {% endif %}
       </div>
     </div>
   </header>
 
-  <!-- Conteúdo principal -->
   <main class="content">
     {% block content %}{% endblock %}
   </main>
 
-  <!-- Footer -->
   <footer class="site-footer">
     <div class="footer-inner">
       <p>© 2025 Equatio — Todos os direitos reservados</p>
     </div>
   </footer>
+
+  <!-- Dropdown por clique (mobile) -->
+  <script>
+    (function(){
+      const dd = document.getElementById('userDropdown');
+      if(!dd) return;
+      dd.addEventListener('click', function(e){
+        this.classList.toggle('open');
+      });
+      document.addEventListener('click', function(e){
+        if(!dd.contains(e.target)) dd.classList.remove('open');
+      });
+    })();
+  </script>
 </body>
 </html>

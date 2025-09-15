@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Perfil - Equatio{% endblock %}
+{% block content %}
+<section class="page">
+  <h1>Perfil</h1>
+  <p><strong>Nome:</strong> {{ user.name }}</p>
+  <p><strong>E-mail:</strong> {{ user.email }}</p>
+</section>
+{% endblock %}

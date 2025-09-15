@@ -40,14 +40,19 @@ def create_app():
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if request.method == "POST":
-            email = request.form.get("email","").strip().lower()
-            password = request.form.get("password","")
+            email = request.form.get("email", "").strip().lower()
+            password = request.form.get("password", "")
+
             user = User.query.filter_by(email=email).first()
-            if user and user.check_password(password):
-                login_user(user)
-                next_url = request.args.get("next") or url_for("home")
-                return redirect(next_url)
-            flash("Credenciais inválidas.", "error")
+            if not user or not user.check_password(password):
+                flash("E-mail ou senha inválidos.", "error")
+                return redirect(url_for("login"))
+
+            # faça o login (flask_login)
+            from flask_login import login_user
+            login_user(user)
+            return redirect(url_for("home"))
+
         return render_template("login.html")
 
     @app.route("/logout")
@@ -59,39 +64,45 @@ def create_app():
     @app.route("/register", methods=["GET", "POST"])
     def register():
         if request.method == "POST":
-            name = request.form["name"].strip()
-            email = request.form["email"].strip().lower()
-            password = request.form["password"]
+            name = request.form.get("name", "").strip()
+            email = request.form.get("email", "").strip().lower()
+            password = request.form.get("password", "")
+            confirm = request.form.get("confirm_password", "")
 
-            # --- validações ---
-            if not name or not email or not password:
+            # Campos obrigatórios
+            if not name or not email or not password or not confirm:
                 flash("Preencha todos os campos.", "error")
                 return redirect(url_for("register"))
 
-            # email já existe?
-            if User.query.filter_by(email=email).first():
-                flash("Este e-mail já está cadastrado.", "error")
+            # Senhas iguais
+            if password != confirm:
+                flash("As senhas não coincidem.", "error")
                 return redirect(url_for("register"))
 
-            # força senha ter letras e números
+            # Email já cadastrado?
+            if User.query.filter_by(email=email).first():
+                flash("Este e-mail já está cadastrado. Faça login.", "error")
+                return redirect(url_for("register"))
+
+            # Força de senha (letras + números)
             if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
                 flash("A senha deve conter letras e números.", "error")
                 return redirect(url_for("register"))
 
-            # senha mínima
             if len(password) < 6:
                 flash("A senha deve ter pelo menos 6 caracteres.", "error")
                 return redirect(url_for("register"))
 
-            # --- criar usuário ---
+            # Cria usuário
             user = User(name=name, email=email)
-            user.set_password(password)  # usa bcrypt ou passlib
+            user.set_password(password)  # usa bcrypt/passlib no seu model
             db.session.add(user)
             db.session.commit()
 
-            flash("Conta criada com sucesso! Agora faça login.", "success")
+            flash("Conta criada com sucesso! Faça login.", "success")
             return redirect(url_for("login"))
 
+        # GET
         return render_template("register.html")
 
     @app.route("/verify/<token>")
@@ -131,5 +142,10 @@ def create_app():
     @app.route("/dash-page")
     def dash_page():
         return render_template("dash_wrapper.html")
+
+    @app.route("/profile")
+    @login_required
+    def profile():
+        return render_template("profile.html", user=current_user)
 
     return app

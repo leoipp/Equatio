@@ -1,32 +1,67 @@
 {% extends "base.html" %}
-{% block title %}Registrar{% endblock %}
+{% block title %}Registrar - Equatio{% endblock %}
 {% block content %}
+<section class="auth-wrap">
+  <div class="auth-card">
 
-  <!-- Mensagens de erro/sucesso -->
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="alerts">
-        {% for category, message in messages %}
-          <div class="alert {{ category }}">{{ message }}</div>
-        {% endfor %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="alerts">
+          {% for category, message in messages %}
+            <div class="alert {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <h1>Criar conta</h1>
+    <p class="auth-desc">Suba sua base, ajuste modelos e explore os dados sem depender do Excel.</p>
+
+    <form method="post" class="auth-form" id="register-form">
+      <div>
+        <label>Nome</label>
+        <input type="text" name="name" value="{{ name or '' }}" required>
       </div>
-    {% endif %}
-  {% endwith %}
+      <div>
+        <label>E-mail</label>
+        <input type="email" name="email" value="{{ email or '' }}" required>
+      </div>
 
-  <h1>Criar conta</h1>
-  <form method="post" class="form">
-    <label>Nome</label>
-    <input type="text" name="name" value="{{ name or '' }}" required>
+      <!-- Linha com senha e confirmar lado a lado -->
+      <div class="auth-row">
+        <div>
+          <label>Senha</label>
+          <input type="password" name="password" id="password" required>
+        </div>
+        <div>
+          <label>Confirmar senha</label>
+          <input type="password" name="confirm_password" id="confirm_password" required>
+        </div>
+      </div>
 
-    <label>E-mail</label>
-    <input type="email" name="email" value="{{ email or '' }}" required>
+      <div class="auth-actions">
+        <a href="{{ url_for('login') }}" class="btn-login" style="text-align:center;">Já tenho conta</a>
+        <button type="submit" class="btn btn-primary">Registrar</button>
+      </div>
+    </form>
 
-    <label>Senha</label>
-    <input type="password" name="password" required>
+    <p class="auth-alt">Ao continuar, você concorda com nossos <a href="#">Termos</a>.</p>
+  </div>
+</section>
 
-    <button type="submit">Registrar</button>
-  </form>
+<script>
+  (function(){
+    const form = document.getElementById('register-form');
+    const p1 = document.getElementById('password');
+    const p2 = document.getElementById('confirm_password');
 
-  <p>Já tem conta? <a href="{{ url_for('login') }}">Entrar</a></p>
-
+    form.addEventListener('submit', function(e){
+      if (p1.value !== p2.value) {
+        e.preventDefault();
+        alert('As senhas não coincidem. Verifique e tente novamente.');
+        p2.focus();
+      }
+    });
+  })();
+</script>
 {% endblock %}

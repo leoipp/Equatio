@@ -1,13 +1,38 @@
 {% extends "base.html" %}
-{% block title %}Login{% endblock %}
+{% block title %}Entrar - Equatio{% endblock %}
 {% block content %}
-  <h1>Login</h1>
-  <form method="post" class="form">
-    <label>E-mail</label>
-    <input type="email" name="email" required>
-    <label>Senha</label>
-    <input type="password" name="password" required>
-    <button type="submit">Entrar</button>
-  </form>
-  <p>Não possui conta? <a href="{{ url_for('register') }}">Registrar</a></p>
+<section class="auth-wrap">
+  <div class="auth-card">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="alerts">
+          {% for category, message in messages %}
+            <div class="alert {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <h1>Entrar</h1>
+    <p class="auth-desc">Entre para acessar o dashboard interativo.</p>
+
+    <form method="post" class="auth-form">
+      <div>
+        <label>E-mail</label>
+        <input type="email" name="email" value="{{ email or '' }}" required>
+      </div>
+      <div>
+        <label>Senha</label>
+        <input type="password" name="password" required>
+      </div>
+
+      <div class="auth-actions">
+        <a href="{{ url_for('register') }}" class="btn-login" style="text-align:center;">Registrar</a>
+        <button type="submit" class="btn btn-primary">Entrar</button>
+      </div>
+    </form>
+
+    <p class="auth-alt">Esqueceu a senha? <a href="#">Recuperar acesso</a></p>
+  </div>
+</section>
 {% endblock %}
