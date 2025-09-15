@@ -7,6 +7,7 @@ from email_validator import validate_email, EmailNotValidError
 from .extensions import db, migrate
 from .models import User
 from .dashapp import init_dash
+import re
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/static")
