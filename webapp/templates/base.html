@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <title>{% block title %}Equatio{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <!-- Header / Topbar -->
+  <header class="topbar">
+  <div class="topbar-inner">
+    <!-- Esquerda -->
+    <a class="brand" href="{{ url_for('home') }}">Equatio</a>
+
+    <!-- Meio -->
+    <nav class="nav nav-center">
+      <a href="{{ url_for('home') }}">Home</a>
+      <a href="{{ url_for('dash_page') }}">Dash</a>
+    </nav>
+
+    <!-- Direita -->
+    <div class="user-nav">
+      {% if current_user.is_authenticated %}
+        <span class="welcome">Olá, {{ current_user.name }}</span>
+        <a href="{{ url_for('logout') }}">Sair</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register') }}">Registrar</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+  {% block content %}{% endblock %}
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>© {{ 2025 }} Equatio — Todos os direitos reservados</p>
+    </div>
+  </footer>
+</body>
+</html>
