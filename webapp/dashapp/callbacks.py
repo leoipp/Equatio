@@ -7,12 +7,25 @@ from dash import Input, Output, State, ctx, no_update, dcc, html
 from dash.dependencies import ALL
 from scipy.optimize import curve_fit
 
+# Compiladores SymPy definidos no seu Eq.py (no mesmo pacote dashapp)
+from .Eq import compile_sympy_univar, compile_sympy_vars
+
+# Persistência por usuário
+from flask_login import current_user
+from ..models import db, UserModel
+
+# =========================================
+# Registries em memória (compartilhados)
+# =========================================
+USER_EQ_FUNCS = {}   # name -> callable
+USER_VARS_SPEC = {}  # name -> [var1, var2, ...]  (só p/ modelos "vars")
+USER_MODEL_CFG = {}  # name -> {"solver": "...", "maxfev": int, "init_kind": "...", "init_values": [...]}
 
 # =========================
 # Helpers
 # =========================
 def parse_uploaded(contents: str, filename: str) -> pd.DataFrame:
-    """Lê .xlsx ou .csv do dcc.Upload (base64) e retorna DataFrame com 'id' e 'estrato' (se necessário)."""
+    """Lê .xlsx ou .csv do dcc.Upload (base64) e retorna DataFrame com 'id'."""
     if contents is None or filename is None:
         return None
     _, content_string = contents.split(',')
@@ -32,7 +45,6 @@ def parse_uploaded(contents: str, filename: str) -> pd.DataFrame:
     else:
         raise ValueError("Formato não suportado. Use .xlsx ou .csv.")
 
-    # normalizações
     if "estrato" in df.columns:
         df["estrato"] = df["estrato"].astype(str).str.strip()
 
@@ -66,7 +78,6 @@ def add_fit_curve_univar(fig, func, params, df_view, x_col, y_col):
         y_hat = np.asarray(y_hat, dtype=float).ravel()
         mask = np.isfinite(x_grid) & np.isfinite(y_hat)
         if mask.sum() < 3:
-            # opcional: adicionar anotação leve
             fig.add_annotation(text="(fit sem pontos válidos p/ plotar)", xref="paper", yref="paper",
                                x=0.02, y=0.98, showarrow=False, font=dict(color="#888", size=10))
             return fig
@@ -76,12 +87,11 @@ def add_fit_curve_univar(fig, func, params, df_view, x_col, y_col):
                 y=y_hat[mask],
                 mode="lines",
                 name="Fit",
-                line=dict(width=3, color="red"),  # opcional: destaque
+                line=dict(width=3, color="red"),
             ),
             row=None, col=None
         )
-
-        # Garante que a curva fique por cima
+        # linha por cima
         fig.data = tuple(list(fig.data[:-1]) + [fig.data[-1]])
     except Exception as e:
         print(f"[WARN] Falha ao plotar curva univar: {e}")
@@ -92,7 +102,6 @@ def add_fit_curve_generic(fig, func, params, df_view, x_col, y_col, vars_map):
     if df_view is None or not vars_map or x_col is None:
         return fig
 
-    # o X do gráfico precisa ser uma das variáveis mapeadas
     mapped_cols = list(vars_map.values())
     if x_col not in mapped_cols:
         fig.add_annotation(text=f"(Eixo X '{x_col}' não é uma var do modelo. Selecione X ∈ {mapped_cols})",
@@ -111,7 +120,7 @@ def add_fit_curve_generic(fig, func, params, df_view, x_col, y_col, vars_map):
 
     x_grid = np.linspace(xmin, xmax, 200)
 
-    # monta grade: var do eixo X varia, demais ficam na mediana
+    # monta grade: X varia, demais fixos na mediana
     Xg_cols = []
     for _, col in vars_map.items():
         if col == x_col:
@@ -135,14 +144,12 @@ def add_fit_curve_generic(fig, func, params, df_view, x_col, y_col, vars_map):
                 y=y_hat[mask],
                 mode="lines",
                 name="Fit",
-                line=dict(width=3, color="red"),  # opcional: destaque
+                line=dict(width=3, color="red"),
             ),
             row=None, col=None
         )
-
-        # Garante que a curva fique por cima
+        # linha por cima
         fig.data = tuple(list(fig.data[:-1]) + [fig.data[-1]])
-
     except Exception as e:
         print(f"[WARN] Falha ao plotar curva (vars): {e}")
     return fig
@@ -185,14 +192,50 @@ def get_initial_guess(name, func, X, y):
     return base[:n_params]
 
 
+def load_user_models_to_runtime(EQ_FUNCS, VARS_SPEC):
+    """Carrega modelos do usuário logado (DB) e mescla em EQ_FUNCS/VARS_SPEC + registries."""
+    global USER_EQ_FUNCS, USER_VARS_SPEC, USER_MODEL_CFG
+    if not current_user.is_authenticated:
+        return []
+
+    models = UserModel.query.filter_by(user_id=current_user.id).all()
+    loaded_names = []
+
+    for m in models:
+        try:
+            param_names = [p.strip() for p in (m.params or "").split(",") if p.strip()]
+            if m.kind == "vars":
+                var_names = [v.strip() for v in (m.vars_list or "").split(",") if v.strip()]
+                f = compile_sympy_vars(m.expr, var_names, param_names)
+                USER_VARS_SPEC[m.name] = var_names
+                VARS_SPEC[m.name] = var_names
+            else:
+                f = compile_sympy_univar(m.expr, "x", param_names)
+                USER_VARS_SPEC.pop(m.name, None)
+                VARS_SPEC.pop(m.name, None)
+
+            USER_EQ_FUNCS[m.name] = f
+            USER_MODEL_CFG[m.name] = {
+                "solver": m.solver or "trf",
+                "maxfev": m.maxfev or 20000,
+                "init_kind": m.init_kind or "auto",
+                "init_values": [float(v) for v in (m.init_values or "").split(",") if v.strip()]
+                               if m.init_kind == "manual" else None
+            }
+
+            EQ_FUNCS[m.name] = f
+            loaded_names.append(m.name)
+        except Exception as e:
+            print(f"[WARN] falha carregando modelo '{m.name}': {e}")
+
+    return loaded_names
+
+
 # =========================
 # Registro de Callbacks
 # =========================
 def register_callbacks(app, context):
-    EQ_FUNCS = context["EQ_FUNCS"]
-    VARS_SPEC = context["VARS_SPEC"]
-
-    # (0) Upload -> apenas Stores + status
+    # ---------- (0) Upload ----------
     @app.callback(
         Output("orig-data", "data"),
         Output("store-num-cols", "data"),
@@ -211,20 +254,10 @@ def register_callbacks(app, context):
         num_cols = [c for c in df.select_dtypes(include="number").columns if c != "id"]
         all_cols = [c for c in df.columns if c != "id"]
 
-        msg = (
-            f"Arquivo carregado: {filename}\n"
-            f"Linhas: {len(df)} | Colunas: {len(df.columns)}"
-        )
+        msg = f"Arquivo carregado: {filename}\nLinhas: {len(df)} | Colunas: {len(df.columns)}"
+        return (df.to_dict("records"), num_cols, all_cols, msg)
 
-        # Apenas orig-data + stores. Quem inicializa base/removed/fit é o callback de ações.
-        return (
-            df.to_dict("records"),   # orig-data
-            num_cols,                # store-num-cols
-            all_cols,                # store-all-cols
-            msg                      # status
-        )
-
-    # (A) Mapeamento dinâmico conforme equação
+    # ---------- (A) Vars mapping dinâmico ----------
     @app.callback(
         Output("vars-mapping", "children"),
         Input("eq-dd", "value"),
@@ -233,26 +266,24 @@ def register_callbacks(app, context):
     def render_vars_mapping(eq_name, all_cols):
         if not all_cols:
             return [html.Div("Carregue um arquivo para habilitar mapeamento.", style={"color": "#666"})]
-        vars_needed = VARS_SPEC.get(eq_name, [])
+        vars_needed = context["VARS_SPEC"].get(eq_name, [])
         if not vars_needed:
             return [html.Div("Esta equação não requer mapeamento de variáveis adicionais.", style={"color": "#666"})]
-        children = []
-        for var in vars_needed:
-            children.append(
-                html.Div([
-                    html.Small(f"{var} (coluna)"),
-                    dcc.Dropdown(
-                        id={"role": "var-map", "name": var},
-                        options=[{"label": c, "value": c} for c in all_cols],
-                        value=None,
-                        clearable=True,
-                        style={"minWidth": 220}
-                    )
-                ])
-            )
-        return children
+        opts = [{"label": c, "value": c} for c in all_cols]
+        return [
+            html.Div([
+                html.Small(f"{var} (coluna)"),
+                dcc.Dropdown(
+                    id={"role": "var-map", "name": var},
+                    options=opts,
+                    value=None,
+                    clearable=True,
+                    style={"minWidth": 220}
+                )
+            ]) for var in vars_needed
+        ]
 
-    # (B) Atualiza opções dos dropdowns gerais (X/Y/Target e coluna de estratos)
+    # ---------- (B) Opções dos dropdowns ----------
     @app.callback(
         Output("x-dd", "options"),
         Output("y-dd", "options"),
@@ -269,7 +300,7 @@ def register_callbacks(app, context):
         estrato_col_opts = [{"label": c, "value": c} for c in (all_cols or [])]
         return x_opts, y_opts, target_opts, estrato_col_opts
 
-    # (C) Define valores padrão de X/Y quando as colunas numéricas mudam
+    # ---------- (C) Valores padrão de X/Y ----------
     @app.callback(
         Output("x-dd", "value"),
         Output("y-dd", "value"),
@@ -283,18 +314,31 @@ def register_callbacks(app, context):
         default_y = num_cols[1] if len(num_cols) > 1 else num_cols[0]
         return default_x, default_y
 
-    # (D) Habilita/Desabilita os dropdowns de estratos conforme o check
+    # ---------- (D) Render dos campos de estratificação apenas quando checado ----------
     @app.callback(
-        Output("estrato-col-dd", "disabled"),
-        Output("estrato-val-dd", "disabled"),
-        Input("strat-check", "value")
+        Output("strat-fields", "children"),
+        Input("strat-check", "value"),
+        State("store-all-cols", "data"),
     )
-    def toggle_estrato_dd(strat_value):
-        enabled = isinstance(strat_value, list) and ("on" in strat_value)
-        disabled = not enabled
-        return disabled, disabled
+    def toggle_strat_fields(strat_value, all_cols):
+        if not (isinstance(strat_value, list) and ("on" in strat_value)):
+            return []
+        all_cols = all_cols or []
+        col_opts = [{"label": c, "value": c} for c in all_cols]
+        return [
+            html.Div(className="mt-8", children=[
+                html.Small("Coluna de estratos"),
+                dcc.Dropdown(id="estrato-col-dd", options=col_opts, value=None,
+                             clearable=True, className="minw-220"),
+            ]),
+            html.Div(className="mt-8", children=[
+                html.Small("Valor do estrato"),
+                dcc.Dropdown(id="estrato-val-dd", options=[], value=None,
+                             clearable=True, className="minw-220"),
+            ]),
+        ]
 
-    # (E) Atualiza as opções do valor do estrato conforme a coluna escolhida + base de dados
+    # ---------- (E) Opções do valor do estrato ----------
     @app.callback(
         Output("estrato-val-dd", "options"),
         Output("estrato-val-dd", "value"),
@@ -314,7 +358,7 @@ def register_callbacks(app, context):
         value = vals[0] if vals else None
         return opts, value
 
-    # (F) Atualiza gráfico com base em filtro/eixos/base/fit
+    # ---------- (F) Gráfico ----------
     @app.callback(
         Output("scatter-plot", "figure"),
         Input("strat-check", "value"),
@@ -330,20 +374,16 @@ def register_callbacks(app, context):
             return {}
         df_base = pd.DataFrame(base_data)
 
-        # aplica filtro de estratificação
         strat_on = isinstance(strat_value, list) and ("on" in strat_value)
         if strat_on and estrato_col and (estrato_col in df_base.columns) and (estrato_val is not None):
             df_view = df_base[df_base[estrato_col] == estrato_val]
         else:
             df_view = df_base
 
-        # 1) pontos
         d_plot = df_view.dropna(subset=[x_col, y_col])
         fig = px.scatter(d_plot, x=x_col, y=y_col, custom_data=["id"])
-        # deixa os pontos um pouco transparentes
         fig.update_traces(mode="markers", marker={"opacity": 0.6, "size": 7}, selector=dict(type="scatter"))
 
-        # 2) curva
         if fit_state and isinstance(fit_state, dict):
             name = fit_state.get("name")
             params = fit_state.get("params")
@@ -352,44 +392,34 @@ def register_callbacks(app, context):
             if func and params:
                 if uses_vars:
                     vars_map = fit_state.get("maps") or {}
-                    # --- sua helper ---
                     fig = add_fit_curve_generic(fig, func, params, df_view, x_col, y_col, vars_map)
                 else:
-                    # --- sua helper ---
                     fig = add_fit_curve_univar(fig, func, params, df_view, x_col, y_col)
 
-        # 3) REORDENA: garanta que todas as linhas (lines) fiquem por cima
+        # pontos primeiro, linhas por último
         if len(fig.data) > 1:
-            points = []
-            lines = []
+            points, lines = [], []
             for tr in fig.data:
-                # qualquer trace com 'lines' no modo vai pro topo
-                if hasattr(tr, "mode") and tr.mode and "lines" in tr.mode:
+                if getattr(tr, "mode", None) and "lines" in tr.mode:
                     lines.append(tr)
                 else:
                     points.append(tr)
-            # remonta: pontos primeiro, linhas por último
             fig.data = tuple(points + lines)
-
-            # destaque da linha (ajusta todas que são 'lines')
             for tr in lines:
                 if not getattr(tr, "line", None):
                     tr.line = {}
                 tr.line["width"] = 3
-                # cor opcional (remova se quiser manter automático)
-                # tr.line["color"] = "red"
 
         fig.update_layout(dragmode="lasso")
         return fig
 
-    # (G) Remover / Resetar / Mostrar IDs / Ajustar
-    #     -> ÚNICO callback que escreve em base-data, removed-ids e fit-state
+    # ---------- (G) Ações: init/reset/remove/show/fit ----------
     @app.callback(
         Output("base-data", "data"),
         Output("removed-ids", "data"),
         Output("output", "children"),
         Output("fit-state", "data"),
-        Input("orig-data", "data"),          # inicializa
+        Input("orig-data", "data"),
         Input("remove-btn", "n_clicks"),
         Input("reset-btn", "n_clicks"),
         Input("show-removed-btn", "n_clicks"),
@@ -418,26 +448,24 @@ def register_callbacks(app, context):
 
         trig = ctx.triggered_id
 
-        # Inicialização (após upload): somente este callback escreve base/removed/fit
+        # Inicializa base/removed/fit após upload
         if trig == "orig-data":
             if orig_data is None:
                 return no_update, no_update, no_update, no_update
             return orig_data, [], no_update, None
 
-        # Sem dados carregados
         if orig_data is None:
             return no_update, no_update, "Carregue um arquivo primeiro.", no_update
 
         df_base = pd.DataFrame(base_data) if base_data is not None else pd.DataFrame(orig_data)
 
-        # helper de filtro por estratificação
         strat_on = isinstance(strat_value, list) and ("on" in strat_value)
         def apply_strat(dfin: pd.DataFrame) -> pd.DataFrame:
             if strat_on and estrato_col and (estrato_col in dfin.columns) and (estrato_val is not None):
                 return dfin[dfin[estrato_col] == estrato_val]
             return dfin
 
-        # Reset base
+        # Reset
         if trig == "reset-btn":
             return orig_data, [], "Base resetada; IDs removidos zerados.", None
 
@@ -464,9 +492,9 @@ def register_callbacks(app, context):
                 if x_col is None or y_col is None:
                     return base_data, removed_ids, "Defina Eixos X/Y.", no_update
                 d_view = apply_strat(df_base).dropna(subset=[x_col, y_col]).reset_index(drop=True)
-                idxs = [int(p["pointIndex"]) for p in selectedData["points"]]
                 if len(d_view) == 0:
                     return base_data, removed_ids, "Nenhuma linha válida para mapear seleção.", no_update
+                idxs = [int(p["pointIndex"]) for p in selectedData["points"]]
                 picked_ids = d_view.loc[idxs, "id"].tolist()
             if not picked_ids:
                 return base_data, removed_ids, "Nenhum ID capturado.", no_update
@@ -475,7 +503,7 @@ def register_callbacks(app, context):
             removed_ids_new = (removed_ids or []) + picked_ids
             return df_new.to_dict("records"), removed_ids_new, f"Removidos {len(picked_ids)}: {picked_ids}", no_update
 
-        # Ajustar equação
+        # Ajuste (fit)
         if trig == "fit-btn":
             if not eq_name:
                 return no_update, no_update, "Selecione uma equação em Eq.py.", no_update
@@ -485,7 +513,6 @@ def register_callbacks(app, context):
 
             df_view = apply_strat(df_base)
 
-            # Mapeamentos dinâmicos (se a equação usa Vars)
             vars_needed = context["VARS_SPEC"].get(eq_name, [])
             vars_map = {}
             if vars_needed:
@@ -494,6 +521,15 @@ def register_callbacks(app, context):
                         vars_map[comp_id.get("name")] = val
 
             uses_vars = bool(vars_needed)
+
+            # Config do modelo (se for custom do usuário)
+            cfg = USER_MODEL_CFG.get(eq_name, {})
+            method = cfg.get("solver", None)         # trf | dogbox | lm
+            maxfev = int(cfg.get("maxfev", 20000))
+            p0_manual = cfg.get("init_values", None)
+            kwargs = {"maxfev": maxfev}
+            if method:
+                kwargs["method"] = method
 
             if uses_vars:
                 missing = [v for v in vars_needed if not vars_map.get(v)]
@@ -510,9 +546,9 @@ def register_callbacks(app, context):
                 X = df_fit[[vars_map[v] for v in vars_needed]].to_numpy(dtype=float, copy=True)
                 y = df_fit[map_target].to_numpy(dtype=float, copy=True)
 
-                p0 = get_initial_guess(eq_name, func, X, y)
+                p0 = p0_manual if (p0_manual and len(p0_manual) > 0) else get_initial_guess(eq_name, func, X, y)
                 try:
-                    popt, _ = curve_fit(func, X, y, p0=p0, maxfev=20000)
+                    popt, _ = curve_fit(func, X, y, p0=p0, **kwargs)
                     y_hat = func(X, *popt)
                     r, r2, rmse, bias = regression_metrics(y, y_hat)
                     fit_info = {
@@ -522,11 +558,9 @@ def register_callbacks(app, context):
                         "maps": vars_map,
                         "target": map_target,
                     }
-                    msg = (
-                        f"Ajuste OK: {eq_name}\n"
-                        f"Parâmetros: {np.round(fit_info['params'], 6).tolist()}\n"
-                        f"r={r:.4f} | r²={r2:.4f} | RMSE={rmse:.4f} | Bias={bias:.4f}"
-                    )
+                    msg = (f"Ajuste OK: {eq_name}\n"
+                           f"Parâmetros: {np.round(fit_info['params'], 6).tolist()}\n"
+                           f"r={r:.4f} | r²={r2:.4f} | RMSE={rmse:.4f} | Bias={bias:.4f}")
                     return no_update, no_update, msg, fit_info
                 except Exception as e:
                     return no_update, no_update, f"Falha no ajuste: {e}", no_update
@@ -542,20 +576,177 @@ def register_callbacks(app, context):
                 X = df_fit[x_col].to_numpy(dtype=float, copy=True)
                 y = df_fit[y_col].to_numpy(dtype=float, copy=True)
 
-                p0 = get_initial_guess(eq_name, func, X, y)
+                p0 = p0_manual if (p0_manual and len(p0_manual) > 0) else get_initial_guess(eq_name, func, X, y)
                 try:
-                    popt, _ = curve_fit(func, X, y, p0=p0, maxfev=20000)
+                    popt, _ = curve_fit(func, X, y, p0=p0, **kwargs)
                     y_hat = func(X, *popt)
                     r, r2, rmse, bias = regression_metrics(y, y_hat)
                     fit_info = {"name": eq_name, "params": [float(v) for v in popt], "uses_vars": False}
-                    msg = (
-                        f"Ajuste OK: {eq_name}\n"
-                        f"Parâmetros: {np.round(fit_info['params'], 6).tolist()}\n"
-                        f"r={r:.4f} | r²={r2:.4f} | RMSE={rmse:.4f} | Bias={bias:.4f}"
-                    )
+                    msg = (f"Ajuste OK: {eq_name}\n"
+                           f"Parâmetros: {np.round(fit_info['params'], 6).tolist()}\n"
+                           f"r={r:.4f} | r²={r2:.4f} | RMSE={rmse:.4f} | Bias={bias:.4f}")
                     return no_update, no_update, msg, fit_info
                 except Exception as e:
                     return no_update, no_update, f"Falha no ajuste: {e}", no_update
 
-        # Sem ação tratada
         return no_update, no_update, no_update, no_update
+
+    # ---------- Modal abrir/fechar ----------
+    @app.callback(
+        Output("new-model-modal", "className"),
+        Input("open-new-model", "n_clicks"),
+        Input("nm-cancel", "n_clicks"),
+        prevent_initial_call=True
+    )
+    def toggle_modal(n_open, n_close):
+        trig = ctx.triggered_id
+        if trig == "open-new-model":
+            return "modal show"  # abre
+        return "modal"  # fecha
+
+    # ---------- Campos dinâmicos (vars / init manual) ----------
+    @app.callback(
+        Output("nm-vars-spec-wrap", "children"),
+        Output("nm-init-values-wrap", "children"),
+        Input("nm-kind", "value"),
+        Input("nm-init-kind", "value"),
+    )
+    def show_dynamic_fields(kind, init_kind):
+        vars_block = []
+        if kind == "vars":
+            vars_block = [
+                html.Label("Ordem das variáveis (VARS_SPEC)"),
+                dcc.Input(id="nm-vars-spec", type="text",
+                          placeholder="Ex.: IDADE1, IDADE2, DMAX1", className="input")
+            ]
+        init_block = []
+        if init_kind == "manual":
+            init_block = [
+                html.Label("Valores iniciais (lista)"),
+                dcc.Input(id="nm-init-values", type="text",
+                          placeholder="Ex.: 0.5, 1.0, 0.1", className="input")
+            ]
+        return vars_block, init_block
+
+    # ---------- Carregar modelos do usuário ao entrar na página ----------
+    @app.callback(
+        Output("eq-dd", "options"),
+        Input("url", "pathname")
+    )
+    def preload_user_models(_):
+        EQ_FUNCS = context["EQ_FUNCS"]
+        VARS_SPEC = context["VARS_SPEC"]
+        load_user_models_to_runtime(EQ_FUNCS, VARS_SPEC)
+        eq_names = sorted(EQ_FUNCS.keys())
+        return [{"label": n, "value": n} for n in eq_names]
+
+    # ---------- Validar / Salvar modelo ----------
+    @app.callback(
+        Output("nm-status", "children"),
+        Output("eq-dd", "options"),
+        Output("eq-dd", "value"),
+        Output("new-model-modal", "style"),
+        Input("nm-validate", "n_clicks"),
+        Input("nm-save", "n_clicks"),
+        State("nm-name", "value"),
+        State("nm-kind", "value"),
+        State("nm-expr", "value"),
+        State("nm-params", "value"),
+        State("nm-init-kind", "value"),
+        State("nm-init-values", "value"),
+        State("nm-solver", "value"),
+        State("nm-maxfev", "value"),
+        State("nm-vars-spec", "value"),   # <- corrigido id
+        State("base-data", "data"),
+        prevent_initial_call=True
+    )
+    def validate_or_save(nv, ns, nm_name, nm_kind, nm_expr, nm_params,
+                         nm_init_kind, nm_init_values, nm_solver, nm_maxfev,
+                         nm_vars_list, base_data):
+        trig = ctx.triggered_id
+        name = (nm_name or "").strip()
+        if not name:
+            return ("Informe um nome para o modelo.", no_update, no_update, no_update)
+
+        try:
+            param_names = [p.strip() for p in (nm_params or "").split(",") if p.strip()]
+            if nm_kind == "vars":
+                var_names = [v.strip() for v in (nm_vars_list or "").split(",") if v.strip()]
+                f_compiled = compile_sympy_vars(nm_expr, var_names, param_names)
+            else:
+                var_names = None
+                f_compiled = compile_sympy_univar(nm_expr, "x", param_names)
+        except Exception as e:
+            return (f"Erro de sintaxe ao compilar: {e}", no_update, no_update, no_update)
+
+        # validação rápida
+        try:
+            if base_data:
+                df = pd.DataFrame(base_data)
+                if nm_kind == "vars" and var_names and set(var_names).issubset(df.columns):
+                    d = df.dropna(subset=var_names)
+                    if len(d) >= 3:
+                        X_try = d[var_names].head(5).to_numpy()
+                        p_try = np.ones(len(param_names))
+                        _ = f_compiled(X_try, *p_try)
+                elif nm_kind == "uni":
+                    num_cols = df.select_dtypes(include="number").columns.tolist()
+                    if num_cols:
+                        x_try = df[num_cols[0]].dropna().head(5).to_numpy()
+                        p_try = np.ones(len(param_names))
+                        _ = f_compiled(x_try, *p_try)
+            ok_msg = "✅ Validação OK."
+        except Exception as e:
+            return (f"Falha na validação com dados: {e}", no_update, no_update, no_update)
+
+        if trig == "nm-validate":
+            return (ok_msg, no_update, no_update, no_update)
+
+        # Salvar no banco
+        if not current_user.is_authenticated:
+            return ("Faça login para salvar modelos.", no_update, no_update, no_update)
+
+        init_values_txt = None
+        if nm_init_kind == "manual" and (nm_init_values or "").strip():
+            init_values_txt = ",".join([v.strip() for v in nm_init_values.split(",") if v.strip()])
+
+        m = UserModel.query.filter_by(user_id=current_user.id, name=name).one_or_none()
+        if m is None:
+            m = UserModel(user_id=current_user.id, name=name)
+            db.session.add(m)
+
+        m.kind = nm_kind
+        m.expr = nm_expr.strip()
+        m.params = ",".join(param_names)
+        m.vars_list = ",".join(var_names) if (nm_kind == "vars" and var_names) else None
+        m.init_kind = nm_init_kind
+        m.init_values = init_values_txt
+        m.solver = nm_solver or "trf"
+        m.maxfev = int(nm_maxfev or 20000)
+        db.session.commit()
+
+        # Atualiza registries e opções
+        EQ_FUNCS = context["EQ_FUNCS"]
+        VARS_SPEC = context["VARS_SPEC"]
+
+        if nm_kind == "vars":
+            USER_VARS_SPEC[name] = var_names
+            VARS_SPEC[name] = var_names
+        else:
+            USER_VARS_SPEC.pop(name, None)
+            VARS_SPEC.pop(name, None)
+
+        USER_EQ_FUNCS[name] = f_compiled
+        USER_MODEL_CFG[name] = {
+            "solver": m.solver, "maxfev": m.maxfev,
+            "init_kind": m.init_kind,
+            "init_values": [float(v) for v in (init_values_txt or "").split(",") if v.strip()]
+                           if m.init_kind == "manual" else None
+        }
+        EQ_FUNCS[name] = f_compiled
+
+        eq_names_all = sorted(EQ_FUNCS.keys())
+        options = [{"label": n, "value": n} for n in eq_names_all]
+
+        return (f"✅ Modelo '{name}' salvo.", options, name, no_update)  # não mexe na modal
+

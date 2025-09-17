@@ -11,6 +11,7 @@ import re
 
 from .oauth import init_oauth
 from .routes_oauth import bp_oauth
+from .routes_billing import bp_billing
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/static")
@@ -25,6 +26,8 @@ def create_app():
 
     init_oauth(app)
     app.register_blueprint(bp_oauth)
+
+    app.register_blueprint(bp_billing)
 
     # login manager
     login_manager = LoginManager()

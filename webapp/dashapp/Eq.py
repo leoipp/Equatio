@@ -1,5 +1,7 @@
 # Eq.py
 import numpy as np
+import sympy as sp
+import numpy as np
 
 # =========================
 # Helpers numéricos
@@ -256,3 +258,36 @@ INITIAL_GUESSES = {
 
 def initial_guess(name, X, y):
     return list(INITIAL_GUESSES.get(name, []))
+
+SAFE_FUNCS = {
+    "exp": np.exp,
+    "log": np.log,
+    "sqrt": np.sqrt,
+    "sin": np.sin,
+    "cos": np.cos,
+    "tan": np.tan,
+    "pow": np.power,
+    "abs": np.abs,
+}
+
+def compile_sympy_univar(expr_str, x_name, param_names):
+    x = sp.Symbol(x_name)
+    betas = [sp.Symbol(p.strip()) for p in param_names]
+    expr = sp.sympify(expr_str)  # valida sintaxe
+    f_np = sp.lambdify([x] + betas, expr, modules=[SAFE_FUNCS, "numpy"])
+    def f_wrapped(x_arr, *params):
+        return np.asarray(f_np(x_arr, *params), dtype=float)
+    return f_wrapped
+
+def compile_sympy_vars(expr_str, var_names, param_names):
+    vars_syms = [sp.Symbol(v.strip()) for v in var_names]
+    betas = [sp.Symbol(p.strip()) for p in param_names]
+    expr = sp.sympify(expr_str)
+    f_np = sp.lambdify(vars_syms + betas, expr, modules=[SAFE_FUNCS, "numpy"])
+    def f_wrapped(X, *params):
+        X = np.asarray(X)
+        if X.ndim == 1:
+            X = X.reshape(-1, len(var_names))
+        cols = [X[:, i] for i in range(len(var_names))]
+        return np.asarray(f_np(*cols, *params), dtype=float)
+    return f_wrapped

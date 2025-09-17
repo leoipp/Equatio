@@ -11,13 +11,14 @@ def init_dash(server):
         __name__,
         server=server,
         url_base_pathname="/dash/",
-        suppress_callback_exceptions=True,
-        title="Ajustes WB - @ipp",
+        external_stylesheets=["/static/styles.css"],
+        suppress_callback_exceptions=True
     )
 
     # Carrega Eq.py (local ao pacote dashapp)
     Eq = importlib.import_module("webapp.dashapp.Eq")
     importlib.reload(Eq)
+
 
     EQ_FUNCS   = Eq.EQUATIONS
     VARS_SPEC  = getattr(Eq, "VARS_SPEC", {})

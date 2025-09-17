@@ -237,6 +237,26 @@ html, body {
   color: #444;
 }
 
+/* Container para empilhar cards horizontalmente com scroll lateral em telas pequenas */
+.h-stack {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;               /* espaço para o scroll */
+  -webkit-overflow-scrolling: touch; /* suaviza o scroll em iOS */
+  align-items: flex-start;
+}
+
+/* Cards dentro do h-stack mantém tamanho mínimo e não encolhem demais */
+.h-stack > .about-card {
+  flex: 0 0 320px;   /* largura base do card na fila horizontal */
+  min-width: 280px;
+}
+
+/* Opcional: esconder barra de rolagem visual em alguns navegadores (estética) */
+.h-stack::-webkit-scrollbar { height: 8px; }
+.h-stack::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 6px; }
 
 /* ===== Auth (Login / Registro) ===== */
 .auth-wrap {
@@ -521,34 +541,3 @@ html, body {
 .oauth-buttons .btn { display:block; text-align:center; }
 .or-sep { display:flex; align-items:center; gap:10px; color:#888; margin:12px 0; }
 .or-sep::before, .or-sep::after { content:""; flex:1; height:1px; background:#eee; }
-
-.modal{
-  position: fixed;
-  inset: 0;
-  display: none;              /* escondida por padrão */
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,.45);
-  z-index: 1000;
-}
-.modal.show{                  /* quando “abre” */
-  display: flex;
-}
-.modal-content{
-  width: min(720px, 96vw);
-  max-height: 90vh;
-  overflow: auto;
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px 18px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.25);
-}
-.modal-close{
-  display:inline-block;
-  margin-left:auto;
-  cursor:pointer;
-  border:0;
-  background:transparent;
-  font-size: 22px;
-  line-height: 1;
-}
