@@ -368,6 +368,88 @@ html, body {
 .user-dropdown:hover .dropdown-menu {
   display: block;
 }
+/* ===== Perfil (layout 2 colunas) ===== */
+/* Perfil: layout geral (já existe) */
+.profile-layout {
+  max-width: 1200px;
+  margin: 20px auto 40px;
+  padding: 0 16px;
+  display: grid;
+  grid-template-columns: 260px 1fr;  /* sidebar | conteúdo */
+  gap: 24px;
+}
+
+/* Botões e forms já herdados das suas classes (.btn, .btn-primary, etc.) */
+
+.profile-content .about-card + .about-card {
+  margin-top: 16px;   /* empilha com espaçamento */
+}
+
+/* Inputs do perfil seguem o visual dos formulários globais (.auth-form etc.) */
+
+/* Responsivo */
+@media (max-width: 960px) {
+  .profile-layout { grid-template-columns: 1fr; }
+}
+
+.profile-sidebar {
+  background: rgba(255,255,255,0.55);
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  padding: 16px;
+  height: fit-content;
+}
+
+.sidebar-group {
+  display: grid;
+  gap: 8px;
+}
+.sidebar-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sidebar-item:hover { background: #f6f6f6; }
+.sidebar-item.active {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eef3ff;
+}
+
+.profile-content .view-title {
+  margin: 0 0 14px;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* Grades internas do conteúdo (direita) */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+/* Reaproveita o visual dos cards (com transparência ~0.55) */
+.about-card {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.55);
+  padding: 16px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+.about-card .about-title { margin: 0 0 8px; }
+.about-card .about-text { margin: 4px 0; color: #444; }
 
 
 /* ===== Footer colado ao final ===== */
@@ -379,7 +461,94 @@ html, body {
 .footer-inner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 14px 16px 24px;
+  padding: 5px 5px 5px;
   color: #555;
   font-size: 14px;
+}
+
+/* ====== Painéis do Dash (mesmo estilo dos frames do perfil) ====== */
+.panel {
+  background: #fff;
+  border-radius: 12px;
+  margin: 20px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #eee;
+}
+
+/* espaçamento adicional quando usar mt-14 */
+.panel.mt-14 {
+  margin-top: 28px;
+}
+/* Grid do Dash: sidebar à esquerda, main à direita */
+.dash-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr; /* ajustável */
+  gap: 24px;
+  align-items: start;
+  padding: 16px 24px 16px 24px;
+}
+
+/* Coluna esquerda empilha os painéis */
+.dash-sidebar .panel {
+  margin: 0 0 16px 0;
+}
+
+/* Direita: painel do gráfico “gruda” ao topo ao rolar (se a coluna esquerda ficar alta) */
+.dash-main .panel.sticky {
+  position: sticky;
+  top: 16px; /* distância do topo (abaixo do header) */
+}
+
+/* Título dos painéis (opcional, fica elegante) */
+.panel-title {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* Ajuste de altura padrão do gráfico (opcional) */
+.dash-graph .js-plotly-plot,
+.dash-graph .plot-container,
+.dash-graph .svg-container {
+  height: 560px !important; /* ajuste a gosto */
+}
+
+/* Responsivo: em telas menores, empilha as colunas */
+@media (max-width: 1100px) {
+  .dash-layout { grid-template-columns: 1fr; }
+  .dash-main .panel.sticky { position: static; top: auto; }
+}
+.oauth-buttons .btn { display:block; text-align:center; }
+.or-sep { display:flex; align-items:center; gap:10px; color:#888; margin:12px 0; }
+.or-sep::before, .or-sep::after { content:""; flex:1; height:1px; background:#eee; }
+
+.modal{
+  position: fixed;
+  inset: 0;
+  display: none;              /* escondida por padrão */
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.45);
+  z-index: 1000;
+}
+.modal.show{                  /* quando “abre” */
+  display: flex;
+}
+.modal-content{
+  width: min(720px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+.modal-close{
+  display:inline-block;
+  margin-left:auto;
+  cursor:pointer;
+  border:0;
+  background:transparent;
+  font-size: 22px;
+  line-height: 1;
 }
