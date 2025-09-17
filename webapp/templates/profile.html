@@ -1,9 +1,179 @@
 {% extends "base.html" %}
 {% block title %}Perfil - Equatio{% endblock %}
+
 {% block content %}
-<section class="page">
-  <h1>Perfil</h1>
-  <p><strong>Nome:</strong> {{ user.name }}</p>
-  <p><strong>E-mail:</strong> {{ user.email }}</p>
+<section class="profile-layout">
+
+  <!-- Sidebar (menu à esquerda) -->
+  <aside class="profile-sidebar">
+    <div class="sidebar-group">
+      <button class="sidebar-item active" data-target="view-perfil">Perfil</button>
+      <button class="sidebar-item" data-target="view-modelos">Modelos</button>
+      <button class="sidebar-item" data-target="view-creditos">Créditos</button>
+    </div>
+  </aside>
+
+  <!-- Conteúdo à direita -->
+  <section class="profile-content">
+
+    <!-- PERFIL (empilhado: pessoais em cima, acadêmico/profissional abaixo) -->
+    <div class="profile-view" id="view-perfil" style="display:block;">
+
+      <!-- Bloco: Dados Pessoais -->
+      <div class="about-card">
+        <h2 class="view-title">Dados Pessoais</h2>
+
+        <!-- Flash (opcional) -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="alerts">
+              {% for category, message in messages %}
+                <div class="alert {{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <form method="post" class="auth-form" id="form-pessoais">
+          <input type="hidden" name="section" value="pessoais">
+
+          <div class="grid-2">
+            <div>
+              <label>Nome</label>
+              <input type="text" name="first_name" value="{{ user.name or '' }}" disabled required>
+            </div>
+            <div>
+              <label>Sobrenome</label>
+              <input type="text" name="last_name" value="{{ user.last_name or '' }}" disabled>
+            </div>
+          </div>
+
+          <div>
+            <label>Endereço</label>
+            <input type="text" name="address" value="{{ user.address or '' }}" disabled>
+          </div>
+
+          <div>
+            <label>CPF</label>
+            <input type="text" name="cpf" value="{{ user.cpf or '' }}" disabled>
+          </div>
+
+          <div class="auth-actions">
+            <button type="button" class="btn-login" data-edit="pessoais">Editar</button>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn" data-cancel="pessoais" style="display:none;">Cancelar</button>
+              <button type="submit" class="btn btn-primary" data-save="pessoais" style="display:none;">Salvar</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Bloco: Acadêmico / Profissional -->
+      <div class="about-card" style="margin-top:16px;">
+        <h2 class="view-title">Informações Acadêmicas/Profissionais</h2>
+
+        <form method="post" class="auth-form" id="form-academico">
+          <input type="hidden" name="section" value="academico">
+
+          <div class="grid-2">
+            <div>
+              <label>Formação</label>
+              <input type="text" name="education" value="{{ user.education or '' }}" disabled>
+            </div>
+            <div>
+              <label>Profissão</label>
+              <input type="text" name="profession" value="{{ user.profession or '' }}" disabled>
+            </div>
+          </div>
+
+          <div>
+            <label>Empresa</label>
+            <input type="text" name="company" value="{{ user.company or '' }}" disabled>
+          </div>
+
+          <div class="auth-actions">
+            <button type="button" class="btn-login" data-edit="academico">Editar</button>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn" data-cancel="academico" style="display:none;">Cancelar</button>
+              <button type="submit" class="btn btn-primary" data-save="academico" style="display:none;">Salvar</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODELOS -->
+    <div class="profile-view" id="view-modelos" style="display:none;">
+      <h2 class="view-title">Seus modelos</h2>
+      <div class="grid-2">
+        <div class="about-card">
+          <h3 class="about-title">Modelos cadastrados</h3>
+          <p class="about-text">Gerencie equações do <code>Eq.py</code> ou crie variações.</p>
+          <a href="{{ url_for('dash_page') }}" class="btn btn-primary">Abrir Dashboard</a>
+        </div>
+        <div class="about-card">
+          <h3 class="about-title">Histórico</h3>
+          <p class="about-text">Veja ajustes e métricas recentes (r, r², RMSE, Bias).</p>
+          <a href="#" class="btn">Ver histórico</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRÉDITOS -->
+    <div class="profile-view" id="view-creditos" style="display:none;">
+      <h2 class="view-title">Créditos e plano</h2>
+      <div class="grid-2">
+        <div class="about-card">
+          <h3 class="about-title">Seu plano</h3>
+          <p class="about-text">Plano atual: <strong>Profissional</strong></p>
+          <p class="about-text">Renovação: 30/12/2025</p>
+          <a href="#" class="btn">Gerenciar plano</a>
+        </div>
+        <div class="about-card">
+          <h3 class="about-title">Uso</h3>
+          <p class="about-text">Ajustes restantes: <strong>120</strong></p>
+          <p class="about-text">Uploads restantes: <strong>28</strong></p>
+          <a href="#" class="btn">Ver faturas</a>
+        </div>
+      </div>
+    </div>
+
+  </section>
 </section>
+
+<script>
+  // Tabs (menu lateral)
+  (function(){
+    const buttons = document.querySelectorAll('.sidebar-item');
+    const views = document.querySelectorAll('.profile-view');
+    function show(id){ views.forEach(v => v.style.display = (v.id === id ? 'block' : 'none'));
+      buttons.forEach(b => b.classList.toggle('active', b.dataset.target === id)); }
+    buttons.forEach(btn => btn.addEventListener('click', () => show(btn.dataset.target)));
+  })();
+
+  // Editar/Salvar/Cancelar por seção (pessoais/academico)
+  (function(){
+    function setEditMode(section, on){
+      const form = document.getElementById('form-' + section);
+      if(!form) return;
+      const inputs = form.querySelectorAll('input');
+      inputs.forEach(i => i.disabled = !on);
+      form.querySelector(`[data-edit="${section}"]`).style.display   = on ? 'none' : '';
+      form.querySelector(`[data-cancel="${section}"]`).style.display = on ? '' : 'none';
+      form.querySelector(`[data-save="${section}"]`).style.display   = on ? '' : 'none';
+    }
+    ['pessoais','academico'].forEach(sec => {
+      const form = document.getElementById('form-' + sec);
+      if(!form) return;
+      form.querySelector(`[data-edit="${sec}"]`).addEventListener('click', () => setEditMode(sec, true));
+      form.querySelector(`[data-cancel="${sec}"]`).addEventListener('click', () => {
+        // reseta os valores do form (para os carregados pelo servidor)
+        form.reset();
+        setEditMode(sec, false);
+      });
+      // ao submeter, volta a desabilitar (o servidor dará flash e re-render)
+      form.addEventListener('submit', () => setEditMode(sec, false));
+    });
+  })();
+</script>
 {% endblock %}
