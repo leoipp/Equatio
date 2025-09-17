@@ -1,5 +1,7 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+import re
+from flask import Flask, render_template, request, redirect, url_for, session, flash, g
+from flask_babel import Babel, _
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from email_validator import validate_email, EmailNotValidError
@@ -7,8 +9,6 @@ from email_validator import validate_email, EmailNotValidError
 from .extensions import db, migrate
 from .models import User
 from .dashapp import init_dash
-import re
-
 from .oauth import init_oauth
 from .routes_oauth import bp_oauth
 from .routes_billing import bp_billing
@@ -16,17 +16,35 @@ from .routes_billing import bp_billing
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/static")
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "troque-isto-em-producao")
-    # DB: use SQLite local ou Postgres em prod (ex.: postgres://user:pass@host/db)
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app.db")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    # i18n
+    app.config['BABEL_DEFAULT_LOCALE'] = 'pt'
+    app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'webapp/translations'
+    app.config['LANGUAGES'] = ['pt', 'en', 'es']
 
     # init extensions
     db.init_app(app)
     migrate.init_app(app, db)
 
+    # ---- Babel (forma compatível com 3.x) ----
+    babel = Babel()
+    def _locale_selector():
+        # 1) preferência do usuário (sessão)
+        lang = session.get('lang')
+        if lang in app.config['LANGUAGES']:
+            g.current_lang = lang
+            return lang
+        # 2) melhor escolha do browser
+        best = request.accept_languages.best_match(app.config['LANGUAGES'])
+        g.current_lang = best or 'pt'
+        return g.current_lang
+    babel.init_app(app, locale_selector=_locale_selector)
+
+    # OAuth / Billing
     init_oauth(app)
     app.register_blueprint(bp_oauth)
-
     app.register_blueprint(bp_billing)
 
     # login manager
@@ -38,7 +56,7 @@ def create_app():
     def load_user(user_id):
         return db.session.get(User, int(user_id))
 
-    # token serializer p/ email verification
+    # serializer para verificação de email
     def get_serializer():
         return URLSafeTimedSerializer(app.config["SECRET_KEY"], salt="email-verify")
 
@@ -55,13 +73,12 @@ def create_app():
 
             user = User.query.filter_by(email=email).first()
             if not user or not user.check_password(password):
-                flash("E-mail ou senha inválidos.", "error")
+                flash(_("E-mail ou senha inválidos."), "error")
                 return redirect(url_for("login"))
 
-            # faça o login (flask_login)
-            from flask_login import login_user
             login_user(user)
-            return redirect(url_for("home"))
+            next_url = request.args.get("next")
+            return redirect(next_url or url_for("home"))
 
         return render_template("login.html")
 
@@ -79,40 +96,40 @@ def create_app():
             password = request.form.get("password", "")
             confirm = request.form.get("confirm_password", "")
 
-            # Campos obrigatórios
             if not name or not email or not password or not confirm:
-                flash("Preencha todos os campos.", "error")
+                flash(_("Preencha todos os campos."), "error")
                 return redirect(url_for("register"))
 
-            # Senhas iguais
+            # e-mail válido (já que você importou o validador)
+            try:
+                validate_email(email)
+            except EmailNotValidError as e:
+                flash(_("E-mail inválido.") + f" {e}", "error")
+                return redirect(url_for("register"))
+
             if password != confirm:
-                flash("As senhas não coincidem.", "error")
+                flash(_("As senhas não coincidem."), "error")
                 return redirect(url_for("register"))
 
-            # Email já cadastrado?
             if User.query.filter_by(email=email).first():
-                flash("Este e-mail já está cadastrado. Faça login.", "error")
+                flash(_("Este e-mail já está cadastrado. Faça login."), "error")
                 return redirect(url_for("register"))
 
-            # Força de senha (letras + números)
             if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
-                flash("A senha deve conter letras e números.", "error")
+                flash(_("A senha deve conter letras e números."), "error")
                 return redirect(url_for("register"))
-
             if len(password) < 6:
-                flash("A senha deve ter pelo menos 6 caracteres.", "error")
+                flash(_("A senha deve ter pelo menos 6 caracteres."), "error")
                 return redirect(url_for("register"))
 
-            # Cria usuário
             user = User(name=name, email=email)
-            user.set_password(password)  # usa bcrypt/passlib no seu model
+            user.set_password(password)
             db.session.add(user)
             db.session.commit()
 
-            flash("Conta criada com sucesso! Faça login.", "success")
+            flash(_("Conta criada com sucesso! Faça login."), "success")
             return redirect(url_for("login"))
 
-        # GET
         return render_template("register.html")
 
     @app.route("/verify/<token>")
@@ -124,31 +141,30 @@ def create_app():
             if user and user.email == data["email"]:
                 user.email_ok = True
                 db.session.commit()
-                flash("E-mail verificado com sucesso!", "success")
+                flash(_("E-mail verificado com sucesso!"), "success")
             else:
-                flash("Token inválido.", "error")
+                flash(_("Token inválido."), "error")
         except SignatureExpired:
-            flash("Link expirado. Faça login e solicite novo link.", "error")
+            flash(_("Link expirado. Faça login e solicite novo link."), "error")
         except BadSignature:
-            flash("Token inválido.", "error")
+            flash(_("Token inválido."), "error")
         return redirect(url_for("login"))
 
-    # Protege /dash* com login
+    # Proteger /dash* (e a API do Dash) quando não logado
     @app.before_request
     def protect_dash():
         path = (request.path or "")
         if path.startswith("/dash"):
             if not current_user.is_authenticated:
                 return redirect(url_for("login", next=path))
-            # opcional: exigir e-mail verificado
+            # Se quiser exigir e-mail verificado:
             # if not current_user.email_ok:
-            #     flash("Verifique seu e-mail para acessar o Dash.", "error")
+            #     flash(_("Verifique seu e-mail para acessar o Dashboard."), "error")
             #     return redirect(url_for("home"))
 
     # monta o Dash
     init_dash(app)
 
-    # opcional: página com iframe
     @app.route("/dash-page")
     def dash_page():
         return render_template("dash_wrapper.html")
@@ -158,28 +174,40 @@ def create_app():
     def profile():
         if request.method == "POST":
             section = request.form.get("section")
-
             try:
                 if section == "pessoais":
                     current_user.name = request.form.get("first_name", "").strip()
                     current_user.last_name = request.form.get("last_name", "").strip()
                     current_user.address = request.form.get("address", "").strip()
                     current_user.cpf = request.form.get("cpf", "").strip()
-
                 elif section == "academico":
                     current_user.education = request.form.get("education", "").strip()
                     current_user.profession = request.form.get("profession", "").strip()
                     current_user.company = request.form.get("company", "").strip()
 
                 db.session.commit()
-                flash("Informações atualizadas com sucesso.", "success")
-
+                flash(_("Informações atualizadas com sucesso."), "success")
             except Exception as e:
                 db.session.rollback()
-                flash("Erro ao salvar: " + str(e), "error")
+                flash(_("Erro ao salvar: ") + str(e), "error")
 
             return redirect(url_for("profile"))
 
         return render_template("profile.html", user=current_user)
+
+    # ---- trocar idioma (POST do select no header) ----
+    @app.post('/set-language')
+    def set_language():
+        lang = request.form.get('lang', 'pt')
+        if lang not in app.config['LANGUAGES']:
+            lang = 'pt'
+        session['lang'] = lang
+        # volta para a página de origem; se não houver, vai p/ home
+        return redirect(request.referrer or url_for('home'))
+
+    # Expor idiomas no template (opcional)
+    @app.context_processor
+    def inject_langs():
+        return dict(LANGUAGES=app.config['LANGUAGES'])
 
     return app

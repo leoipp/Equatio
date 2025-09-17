@@ -8,34 +8,61 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-  <!-- Header / Topbar -->
   <header class="topbar">
-    <div class="topbar-inner">
-      <!-- Esquerda -->
-      <a class="brand" href="{{ url_for('home') }}">Equatio</a>
+  <div class="topbar-inner">
+    <!-- Esquerda -->
+    <a class="brand" href="{{ url_for('home') }}">Equatio</a>
 
-      <!-- Meio -->
-      <nav class="nav nav-center">
-        <a href="{{ url_for('dash_page') }}">Dash</a>
-      </nav>
+    <!-- Meio -->
+    <nav class="nav nav-center">
+      <a href="{{ url_for('dash_page') }}">{{ _('Dash') }}</a>
+    </nav>
 
-      <!-- Direita -->
-      <div class="user-nav">
-        {% if current_user.is_authenticated %}
-          <div class="user-dropdown" id="userDropdown">
-            <span class="user-name">{{ current_user.name }}</span>
-            <div class="dropdown-menu">
-              <a href="{{ url_for('profile') }}">Perfil</a>
-              <a href="{{ url_for('logout') }}">Sair</a>
-            </div>
+    <!-- Direita -->
+    <div class="user-nav">
+      {% if current_user.is_authenticated %}
+        <!-- Saldo de tokens -->
+        <span class="token-badge" title="{{ _('Seu saldo de tokens') }}">
+          {{ (current_user.credits or 0) }} {{ _('tokens') }}
+        </span>
+
+        <!-- Usuário + menu -->
+        <div class="user-dropdown" id="userDropdown">
+          <span class="user-name">{{ current_user.name }}</span>
+          <div class="dropdown-menu">
+            <a href="{{ url_for('profile') }}">{{ _('Perfil') }}</a>
+            <a href="{{ url_for('logout') }}">{{ _('Sair') }}</a>
           </div>
-        {% else %}
-          <a href="{{ url_for('login') }}" class="btn btn-outline">Login</a>
-          <a href="{{ url_for('register') }}" class="btn btn-dark">Registrar</a>
-        {% endif %}
-      </div>
+        </div>
+
+        <!-- Seletor de idioma -->
+        <form class="lang-switch" action="{{ url_for('set_language') }}" method="post">
+          <select name="lang" onchange="this.form.submit()">
+            {% set _lang = g.get('current_lang', 'pt') %}
+            <option value="pt" {{ 'selected' if _lang == 'pt' else '' }}>PT</option>
+            <option value="en" {{ 'selected' if _lang == 'en' else '' }}>EN</option>
+            <option value="es" {{ 'selected' if _lang == 'es' else '' }}>ES</option>
+          </select>
+        </form>
+
+      {% else %}
+        <!-- Seletor de idioma também quando deslogado -->
+        <form class="lang-switch" action="{{ url_for('set_language') }}" method="post" style="margin-right:8px">
+          <select name="lang" onchange="this.form.submit()">
+            {% set _lang = g.get('current_lang', 'pt') %}
+            <option value="pt" {{ 'selected' if _lang == 'pt' else '' }}>PT</option>
+            <option value="en" {{ 'selected' if _lang == 'en' else '' }}>EN</option>
+            <option value="es" {{ 'selected' if _lang == 'es' else '' }}>ES</option>
+          </select>
+        </form>
+
+        <a href="{{ url_for('login') }}" class="btn btn-outline">{{ _('Login') }}</a>
+        <a href="{{ url_for('register') }}" class="btn btn-dark">{{ _('Registrar') }}</a>
+      {% endif %}
     </div>
-  </header>
+  </div>
+</header>
+
 
   <main class="content">
     {% block content %}{% endblock %}
