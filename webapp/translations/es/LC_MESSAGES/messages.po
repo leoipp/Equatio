@@ -1,0 +1,100 @@
+# Spanish translations for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-09-17 16:08-0300\n"
+"PO-Revision-Date: 2025-09-17 16:09-0300\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: es\n"
+"Language-Team: es <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: webapp/__init__.py:76
+msgid "E-mail ou senha inválidos."
+msgstr "E-mail o contraseña inválidos."
+
+#: webapp/__init__.py:100
+msgid "Preencha todos os campos."
+msgstr "Por favor, complete todos los campos."
+
+#: webapp/__init__.py:107
+msgid "E-mail inválido."
+msgstr "E-mail inválido."
+
+#: webapp/__init__.py:111
+msgid "As senhas não coincidem."
+msgstr "Contraseñas no coinciden."
+
+#: webapp/__init__.py:115
+msgid "Este e-mail já está cadastrado. Faça login."
+msgstr "Este e-mail ya está registrado. Por favor, inicie sesión."
+
+#: webapp/__init__.py:119
+msgid "A senha deve conter letras e números."
+msgstr "Contraseña debe contener letras y números."
+
+#: webapp/__init__.py:122
+msgid "A senha deve ter pelo menos 6 caracteres."
+msgstr "Contraseña debe tener al menos 6 caracteres."
+
+#: webapp/__init__.py:130
+msgid "Conta criada com sucesso! Faça login."
+msgstr "Su cuenta ha sido creada con éxito! Por favor, inicie sesión."
+
+#: webapp/__init__.py:144
+msgid "E-mail verificado com sucesso!"
+msgstr "E-mail verificado con éxito!"
+
+#: webapp/__init__.py:146 webapp/__init__.py:150
+msgid "Token inválido."
+msgstr "Token inválido."
+
+#: webapp/__init__.py:148
+msgid "Link expirado. Faça login e solicite novo link."
+msgstr "Link expirado. Por favor, inicie sesión y solicite un nuevo link."
+
+#: webapp/__init__.py:189
+msgid "Informações atualizadas com sucesso."
+msgstr "Información actualizada con éxito."
+
+#: webapp/__init__.py:192
+msgid "Erro ao salvar: "
+msgstr "Error al guardar: "
+
+#: webapp/templates/base.html:18
+msgid "Dash"
+msgstr "Dash"
+
+#: webapp/templates/base.html:25
+msgid "Seu saldo de tokens"
+msgstr "Su saldo de tokens"
+
+#: webapp/templates/base.html:26
+msgid "tokens"
+msgstr "tokens"
+
+#: webapp/templates/base.html:33
+msgid "Perfil"
+msgstr "Perfil"
+
+#: webapp/templates/base.html:34
+msgid "Sair"
+msgstr "Salir"
+
+#: webapp/templates/base.html:59
+msgid "Login"
+msgstr "Login"
+
+#: webapp/templates/base.html:60
+msgid "Registrar"
+msgstr "Registrarse"
+
