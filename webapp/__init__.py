@@ -9,6 +9,9 @@ from .models import User
 from .dashapp import init_dash
 import re
 
+from .oauth import init_oauth
+from .routes_oauth import bp_oauth
+
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/static")
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "troque-isto-em-producao")
@@ -19,6 +22,9 @@ def create_app():
     # init extensions
     db.init_app(app)
     migrate.init_app(app, db)
+
+    init_oauth(app)
+    app.register_blueprint(bp_oauth)
 
     # login manager
     login_manager = LoginManager()
@@ -144,9 +150,33 @@ def create_app():
     def dash_page():
         return render_template("dash_wrapper.html")
 
-    @app.route("/profile")
+    @app.route("/profile", methods=["GET", "POST"])
     @login_required
     def profile():
+        if request.method == "POST":
+            section = request.form.get("section")
+
+            try:
+                if section == "pessoais":
+                    current_user.name = request.form.get("first_name", "").strip()
+                    current_user.last_name = request.form.get("last_name", "").strip()
+                    current_user.address = request.form.get("address", "").strip()
+                    current_user.cpf = request.form.get("cpf", "").strip()
+
+                elif section == "academico":
+                    current_user.education = request.form.get("education", "").strip()
+                    current_user.profession = request.form.get("profession", "").strip()
+                    current_user.company = request.form.get("company", "").strip()
+
+                db.session.commit()
+                flash("Informações atualizadas com sucesso.", "success")
+
+            except Exception as e:
+                db.session.rollback()
+                flash("Erro ao salvar: " + str(e), "error")
+
+            return redirect(url_for("profile"))
+
         return render_template("profile.html", user=current_user)
 
     return app
