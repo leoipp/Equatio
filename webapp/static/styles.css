@@ -515,7 +515,7 @@ html, body {
 
 /* Direita: painel do gráfico “gruda” ao topo ao rolar (se a coluna esquerda ficar alta) */
 .dash-main .panel.sticky {
-  position: sticky;
+  position: static;
   top: 16px; /* distância do topo (abaixo do header) */
 }
 
@@ -566,3 +566,14 @@ html, body {
   font-weight: 500;
 }
 .lang-switch { margin-left: 10px; }
+
+/* dá um fundinho leve enquanto carrega */
+.dash-loading, .dash-loading > div {
+  background: transparent; /* mantenha se preferir clean */
+}
+
+/* deixa o spinner sempre visível acima de tudo */
+._dash-loading-callback, .dash-spinner {
+  z-index: 5;
+}
+.upload-wrap { display: inline-flex; align-items: center; gap: 8px; }

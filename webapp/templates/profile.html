@@ -101,22 +101,97 @@
       </div>
     </div>
 
-    <!-- MODELOS -->
+        <!-- MODELOS -->
     <div class="profile-view" id="view-modelos" style="display:none;">
       <h2 class="view-title">Seus modelos</h2>
-      <div class="h-stack">
-        <div class="about-card">
-          <h3 class="about-title">Modelos cadastrados</h3>
-          <p class="about-text">Gerencie equações do <code>Eq.py</code> ou crie variações.</p>
-          <a href="{{ url_for('dash_page') }}" class="btn btn-primary">Abrir Dashboard</a>
-        </div>
-        <div class="about-card">
-          <h3 class="about-title">Histórico</h3>
-          <p class="about-text">Veja ajustes e métricas recentes (r, r², RMSE, Bias).</p>
-          <a href="#" class="btn">Ver histórico</a>
-        </div>
+
+      <!-- Card: Modelos cadastrados (tabela) -->
+      <div class="about-card">
+        <h3 class="about-title">Modelos cadastrados</h3>
+        <p class="about-text" style="margin:6px 0 12px;">
+          Estes são os modelos que você salvou no Eq.py (customizados por usuário).
+        </p>
+
+        {% if user_models and user_models|length %}
+          <div style="overflow:auto;">
+            <table style="width:100%; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 1px solid #e6e6e6;">
+                  <th style="text-align:left; padding:8px;">Nome</th>
+                  <th style="text-align:left; padding:8px;">Tipo</th>
+                  <th style="text-align:left; padding:8px;">Parâmetros</th>
+                  <th style="text-align:left; padding:8px;">Variáveis</th>
+                  <th style="text-align:left; padding:8px;">Solver</th>
+                  <th style="text-align:left; padding:8px;">maxfev</th>
+                  <th style="text-align:left; padding:8px;">Chutes iniciais</th>
+                  <th style="text-align:left; padding:8px;">Criado em</th>
+                  <th style="text-align:left; padding:8px;">Atualizado em</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for m in user_models %}
+                  <tr style="border-bottom: 1px solid #f0f0f0;">
+                    <td style="padding:8px; font-weight:600;">{{ m.name }}</td>
+                    <td style="padding:8px;">
+                      {% if m.kind == 'vars' %}Multivariado{% else %}Univariado{% endif %}
+                    </td>
+                    <td style="padding:8px;">
+                      <code class="mono">{{ m.params or '—' }}</code>
+                    </td>
+                    <td style="padding:8px;">
+                      {% if m.kind == 'vars' %}
+                        <code class="mono">{{ m.vars_list or '—' }}</code>
+                      {% else %}
+                        <span style="color:#888">—</span>
+                      {% endif %}
+                    </td>
+                    <td style="padding:8px;">{{ m.solver or 'trf' }}</td>
+                    <td style="padding:8px;">{{ m.maxfev or 20000 }}</td>
+                    <td style="padding:8px;">
+                      {% if m.init_kind == 'manual' %}
+                        <span class="token-badge">manual</span>
+                        <code class="mono">{{ m.init_values or '—' }}</code>
+                      {% else %}
+                        <span class="token-badge">auto</span>
+                      {% endif %}
+                    </td>
+                    <td style="padding:8px;">
+                      {{ m.created_at.strftime('%d/%m/%Y %H:%M') if m.created_at else '—' }}
+                    </td>
+                    <td style="padding:8px;">
+                      {{ m.updated_at.strftime('%d/%m/%Y %H:%M') if m.updated_at else '—' }}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="about-text">Você ainda não cadastrou modelos.</p>
+        {% endif %}
+      </div>
+
+      <!-- Card: Histórico (você pode preencher depois com uma tabela de UserFitHistory) -->
+      <div class="about-card" style="margin-top:16px;">
+        <h3 class="about-title">Histórico</h3>
+        <p class="about-text">Veja ajustes e métricas recentes (r, r², RMSE, Bias).</p>
+        {% if fit_history and fit_history|length %}
+          <ul class="mono" style="margin:0; padding-left:18px;">
+            {% for h in fit_history %}
+              <li>
+                {{ h.created_at.strftime('%d/%m/%Y %H:%M') if h.created_at else '—' }}
+                — <strong>{{ h.eq_name }}</strong>
+                — r={{ '%.4f'|format(h.r or 0) }}, r²={{ '%.4f'|format(h.r2 or 0) }},
+                  RMSE={{ '%.4f'|format(h.rmse or 0) }}, Bias={{ '%.4f'|format(h.bias or 0) }}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="about-text">Sem histórico por enquanto.</p>
+        {% endif %}
       </div>
     </div>
+
 
     <!-- CRÉDITOS (empilhado, vertical como Perfil) -->
     <div class="profile-view" id="view-creditos" style="display:none;">

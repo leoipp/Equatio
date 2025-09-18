@@ -7,11 +7,12 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from email_validator import validate_email, EmailNotValidError
 
 from .extensions import db, migrate
-from .models import User
+from .models import User, UserModel, UserFitHistory
 from .dashapp import init_dash
 from .oauth import init_oauth
 from .routes_oauth import bp_oauth
 from .routes_billing import bp_billing
+
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static", static_url_path="/static")
@@ -40,6 +41,7 @@ def create_app():
         best = request.accept_languages.best_match(app.config['LANGUAGES'])
         g.current_lang = best or 'pt'
         return g.current_lang
+
     babel.init_app(app, locale_selector=_locale_selector)
 
     # OAuth / Billing
@@ -51,6 +53,8 @@ def create_app():
     login_manager = LoginManager()
     login_manager.login_view = "login"
     login_manager.init_app(app)
+
+
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -193,7 +197,16 @@ def create_app():
 
             return redirect(url_for("profile"))
 
-        return render_template("profile.html", user=current_user)
+        return render_template(
+            "profile.html",
+            user=current_user,
+            user_models=UserModel.query.filter_by(user_id=current_user.id)
+            .order_by(UserModel.created_at.desc())
+            .all(),
+            fit_history=(UserFitHistory.query.filter_by(user_id=current_user.id)
+                         .order_by(UserFitHistory.created_at.desc())
+                         .limit(20).all())
+        )
 
     # ---- trocar idioma (POST do select no header) ----
     @app.post('/set-language')

@@ -2,6 +2,7 @@ import importlib
 from dash import Dash
 from .app_layout import build_layout
 from .callbacks import register_callbacks
+import logging
 
 def init_dash(server):
     """
@@ -26,5 +27,19 @@ def init_dash(server):
     dash_app.layout = build_layout(EQ_FUNCS, VARS_SPEC)
     # Callbacks
     register_callbacks(dash_app, context=dict(EQ_FUNCS=EQ_FUNCS, VARS_SPEC=VARS_SPEC))
+
+    # Dash DevTools (útil no dev)
+    dash_app.enable_dev_tools(
+        debug=True,
+        dev_tools_ui=True,
+        dev_tools_hot_reload=True,
+        dev_tools_props_check=True,
+        dev_tools_silence_routes_logging=False,
+    )
+
+    # Logging verboso
+    logging.basicConfig(level=logging.DEBUG)  # root
+    dash_app.logger.setLevel(logging.DEBUG)
+    logging.getLogger("werkzeug").setLevel(logging.DEBUG)
 
     return dash_app
